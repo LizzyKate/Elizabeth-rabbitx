@@ -1,5 +1,15 @@
 ### Orderbook Synchronization Implementation
 
+## Start Project
+
+- Install the required dependencies using npm.
+
+* npm install
+
+- Start the application.
+
+* npm start
+
 ## Approach:
 
 - Used ReactJS for building the UI component.
@@ -9,12 +19,12 @@
 - Handled network disconnections with automatic reconnection logic.
 - Verified sequence numbers to manage lost packages.
 
-Challenges:
+## Challenges:
 
 - Ensuring efficient memory usage while handling frequent websocket updates.
 - Managing network disruptions and maintaining a consistent orderbook state.
 
-Possible Improvements:
+## Possible Improvements:
 
 - Implement further optimizations in the merging logic.
 - Enhance UI to display more detailed orderbook information.
