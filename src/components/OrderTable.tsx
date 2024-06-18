@@ -71,7 +71,7 @@ const Orderbook: React.FC = () => {
     return () => {
       centrifuge.disconnect();
     };
-  }, []);
+  }, [lastAskSequence, lastBidSequence]);
 
   // Merge the current orderbook with the new orders
   const mergeOrderbook = (
