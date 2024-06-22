@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Centrifuge } from "centrifuge";
+import { Centrifuge, Subscription } from "centrifuge";
 import ReusableTable from "./Table";
+import { toast } from "react-toastify";
 
 interface Order {
   key: string;
@@ -11,8 +12,11 @@ interface Order {
 const Orderbook: React.FC = () => {
   const [bids, setBids] = useState<Order[]>([]);
   const [asks, setAsks] = useState<Order[]>([]);
+  const centrifugeRef = useRef<Centrifuge | null>(null);
+  const subRef = useRef<Subscription | null>(null);
 
   useEffect(() => {
+    // Create a new Centrifuge instance
     const centrifuge = new Centrifuge(
       process.env.REACT_APP_CENTRIFUGE_URL as string,
       {
@@ -20,78 +24,82 @@ const Orderbook: React.FC = () => {
       }
     );
 
-    centrifuge
-      .on("connecting", function (ctx) {
-        console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
-      })
-      .on("connected", function (ctx) {
-        console.log(`connected over ${ctx.transport}`);
-      })
-      .on("disconnected", function (ctx) {
-        console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
-      })
-      .connect();
+    centrifugeRef.current = centrifuge;
 
-    const sub = centrifuge.newSubscription("orderbook:BTC-USD"); // Change 'BTC-USD' to your desired market symbol
+    // Handle connection events
+    const handleConnectionEvents = () => {
+      centrifuge
+        .on("connecting", () => toast.info("Connecting to network..."))
+        .on("connected", () => toast.success("Connected to network"))
+        .on("disconnected", () =>
+          toast.error("Network disconnected. Reconnecting...")
+        )
+        .on("reconnecting", () => toast.info("Attempting to reconnect..."))
+        .on("reconnected", () => {
+          toast.success("Reconnected to network");
+          resubscribe();
+        })
+        .connect();
+    };
 
-    sub
-      .on("publication", function (ctx) {
-        const data = ctx.data;
+    // Subscribe to the orderbook channel
+    const subscribe = () => {
+      const sub = centrifuge.newSubscription("orderbook:BTC-USD");
 
-        const { bids: newBids, asks: newAsks, sequence } = data;
-        console.log("New bids:", newBids);
+      sub
+        .on("publication", ({ data }) => {
+          const { bids: newBids, asks: newAsks } = data;
 
-        if (newBids.length > 0) {
-          setBids((prevBids) =>
-            mergeOrderbook(
-              prevBids,
-              newBids.map(([price, size]: [string, string]) => ({
-                key: price,
-                price: Number(price),
-                size: Number(size),
-              }))
-            )
-          );
-        }
+          if (newBids.length > 0) {
+            setBids((prevBids) => mergeOrderbook(prevBids, mapOrders(newBids)));
+          }
 
-        if (newAsks.length > 0) {
-          setAsks((prevAsks) =>
-            mergeOrderbook(
-              prevAsks,
-              newAsks.map(([price, size]: [string, string]) => ({
-                key: price,
-                price: Number(price),
-                size: Number(size),
-              }))
-            )
-          );
-        }
-      })
-      .on("subscribing", function (ctx) {
-        console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
-      })
-      .on("subscribed", function (ctx) {
-        console.log("subscribed", ctx);
-      })
-      .on("unsubscribed", function (ctx) {
-        console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
-      })
-      .on("error", function (ctx) {
-        console.log(`error: ${ctx.code}, ${ctx.message}`);
-      })
-      .subscribe();
+          if (newAsks.length > 0) {
+            setAsks((prevAsks) => mergeOrderbook(prevAsks, mapOrders(newAsks)));
+          }
+        })
+        .on("subscribing", () => console.warn("subscribing"))
+        .on("subscribed", () => console.warn("subscribed"))
+        .on("unsubscribed", () => console.warn("unsubscribed"))
+        .on("error", (ctx) => console.error("Error:", ctx))
+        .subscribe();
 
+      subRef.current = sub;
+    };
+
+    // Resubscribe to the orderbook channel
+    const resubscribe = () => {
+      if (subRef.current) {
+        subRef.current.unsubscribe();
+      }
+      subscribe();
+    };
+
+    handleConnectionEvents();
+    subscribe();
+
+    // Cleanup
     return () => {
-      centrifuge.disconnect();
+      if (centrifugeRef.current) {
+        centrifugeRef.current.disconnect();
+      }
     };
   }, []);
 
-  // Merge the current orderbook with the new orders
+  // Map the order data to the Order type
+  const mapOrders = (orders: [string, string][]): Order[] =>
+    orders.map(([price, size]) => ({
+      key: price,
+      price: Number(price),
+      size: Number(size),
+    }));
+
+  // Merge the current orderbook with the new orderbook data
   const mergeOrderbook = (
     currentOrders: Order[],
     newOrders: Order[]
   ): Order[] => {
-    const orderMap = new Map<number, Order>(
+    const orderMap = new Map(
       currentOrders.map((order) => [order.price, order])
     );
 
@@ -106,7 +114,6 @@ const Orderbook: React.FC = () => {
     return Array.from(orderMap.values()).filter((order) => order.size > 0);
   };
 
-  // Define the columns for the bid and ask tables
   const bidColumns = [
     { title: "Price", dataIndex: "price", key: "price" },
     { title: "Size", dataIndex: "size", key: "size" },

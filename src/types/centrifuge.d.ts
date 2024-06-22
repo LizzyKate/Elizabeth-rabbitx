@@ -10,6 +10,7 @@ declare module "centrifuge" {
       callback: (context: any) => void
     ): this;
     subscribe(): void;
+    unsubscribe(): void;
   }
 
   interface CentrifugeOptions {
@@ -23,7 +24,12 @@ declare module "centrifuge" {
     newSubscription(channel: string): // callback: (message: any) => void
     Subscription;
     on(
-      event: "connecting" | "connected" | "disconnected",
+      event:
+        | "connecting"
+        | "connected"
+        | "disconnected"
+        | "reconnecting"
+        | "reconnected",
       callback: (context: any) => void
     ): this;
   }

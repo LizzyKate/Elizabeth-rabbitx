@@ -17,12 +17,12 @@
 - Integrated Centrifuge-js SDK for websocket connection and orderbook updates.
 - Implemented merging logic for bids and asks to ensure efficient memory management.
 - Handled network disconnections with automatic reconnection logic.
-- Verified sequence numbers to manage lost packages.
 
 ## Challenges:
 
 - Ensuring efficient memory usage while handling frequent websocket updates.
 - Managing network disruptions and maintaining a consistent orderbook state.
+- Verified sequence numbers to manage lost packages
 
 ## Possible Improvements:
 
