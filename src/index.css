@@ -1,13 +1,50 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+.orderbook {
+  padding: 20px;
+  font-family: Arial, sans-serif;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.orderbook h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.orderbook-tables {
+  display: flex;
+  justify-content: space-around;
+}
+
+.orderbook-table {
+  width: 45%;
+}
+
+.orderbook-table h2 {
+  text-align: center;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.orderbook-table .ant-table {
+  width: 100%;
+}
+
+.orderbook-table .ant-table-thead > tr > th {
+  background-color: #f0f0f0;
+  text-align: center;
+}
+
+.orderbook-table .ant-table-tbody > tr > td {
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .orderbook-tables {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .orderbook-table {
+    width: 90%;
+    margin-bottom: 20px;
+  }
 }
