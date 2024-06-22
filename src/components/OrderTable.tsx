@@ -11,67 +11,80 @@ interface Order {
 const Orderbook: React.FC = () => {
   const [bids, setBids] = useState<Order[]>([]);
   const [asks, setAsks] = useState<Order[]>([]);
-  const [lastBidSequence, setLastBidSequence] = useState<number | null>(null);
-  const [lastAskSequence, setLastAskSequence] = useState<number | null>(null);
-  const centrifugeRef = useRef<Centrifuge | null>(null);
 
   useEffect(() => {
-    // Create a new Centrifuge instance
     const centrifuge = new Centrifuge(
-      process.env.REACT_APP_CENTRIFUGE_URL ?? "",
+      process.env.REACT_APP_CENTRIFUGE_URL as string,
       {
-        token: process.env.REACT_APP_CENTRIFUGE_TOKEN ?? "",
+        token: process.env.REACT_APP_CENTRIFUGE_TOKEN as string,
       }
     );
 
-    centrifugeRef.current = centrifuge;
+    centrifuge
+      .on("connecting", function (ctx) {
+        console.log(`connecting: ${ctx.code}, ${ctx.reason}`);
+      })
+      .on("connected", function (ctx) {
+        console.log(`connected over ${ctx.transport}`);
+      })
+      .on("disconnected", function (ctx) {
+        console.log(`disconnected: ${ctx.code}, ${ctx.reason}`);
+      })
+      .connect();
 
-    // Create a new subscription to the orderbook channel
-    const subscription = centrifuge.newSubscription("orderbook", (message) => {
-      const { bids: newBids, asks: newAsks, sequence } = message.data;
+    const sub = centrifuge.newSubscription("orderbook:BTC-USD"); // Change 'BTC-USD' to your desired market symbol
 
-      console.log("New bids:", newBids);
-      console.log("New asks:", newAsks);
+    sub
+      .on("publication", function (ctx) {
+        const data = ctx.data;
 
-      if (lastBidSequence === null || sequence > lastBidSequence) {
-        setLastBidSequence(sequence);
-        setBids((prevBids) => mergeOrderbook(prevBids, newBids));
-      } else {
-        console.warn("Out of sequence bid message received");
-      }
+        const { bids: newBids, asks: newAsks, sequence } = data;
+        console.log("New bids:", newBids);
 
-      if (lastAskSequence === null || sequence > lastAskSequence) {
-        setLastAskSequence(sequence);
-        setAsks((prevAsks) => mergeOrderbook(prevAsks, newAsks));
-      } else {
-        console.warn("Out of sequence ask message received");
-      }
-    });
+        if (newBids.length > 0) {
+          setBids((prevBids) =>
+            mergeOrderbook(
+              prevBids,
+              newBids.map(([price, size]: [string, string]) => ({
+                key: price,
+                price: Number(price),
+                size: Number(size),
+              }))
+            )
+          );
+        }
 
-    subscription.on("publication", (ctx) => {
-      console.log("Subscribed to orderbook");
-      console.log(ctx.data);
-    });
+        if (newAsks.length > 0) {
+          setAsks((prevAsks) =>
+            mergeOrderbook(
+              prevAsks,
+              newAsks.map(([price, size]: [string, string]) => ({
+                key: price,
+                price: Number(price),
+                size: Number(size),
+              }))
+            )
+          );
+        }
+      })
+      .on("subscribing", function (ctx) {
+        console.log(`subscribing: ${ctx.code}, ${ctx.reason}`);
+      })
+      .on("subscribed", function (ctx) {
+        console.log("subscribed", ctx);
+      })
+      .on("unsubscribed", function (ctx) {
+        console.log(`unsubscribed: ${ctx.code}, ${ctx.reason}`);
+      })
+      .on("error", function (ctx) {
+        console.log(`error: ${ctx.code}, ${ctx.message}`);
+      })
+      .subscribe();
 
-    subscription.on("error", (error) => {
-      console.error("Subscription error:", error);
-    });
-
-    subscription.subscribe();
-
-    centrifuge.connect();
-
-    // Reconnect if disconnected
-    centrifuge.on("disconnected", (context) => {
-      console.warn("Disconnected:", context);
-      centrifuge.connect();
-    });
-
-    // Cleanup function
     return () => {
       centrifuge.disconnect();
     };
-  }, [lastAskSequence, lastBidSequence]);
+  }, []);
 
   // Merge the current orderbook with the new orders
   const mergeOrderbook = (
@@ -103,6 +116,7 @@ const Orderbook: React.FC = () => {
     { title: "Price", dataIndex: "price", key: "price" },
     { title: "Size", dataIndex: "size", key: "size" },
   ];
+
   return (
     <div className="orderbook">
       <h1>Orderbook</h1>
